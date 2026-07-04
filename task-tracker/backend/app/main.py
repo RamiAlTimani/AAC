@@ -9,6 +9,7 @@ or directly with:
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 
+from app.business_rules import validate_status_transition
 from app.core.config import PORT
 from app.models import TaskCreate, TaskStatus, TaskPriority, TaskResponse, TaskUpdate
 from app.routers import health
@@ -86,8 +87,18 @@ def update_task(task_id: str, payload: TaskUpdate) -> TaskResponse:
 
     Body validation (blank/overlong title, invalid status or priority,
     unknown fields) is handled by the TaskUpdate Pydantic model, which
-    returns HTTP 422 automatically on failure.
+    returns HTTP 422 automatically on failure. When a new status is
+    supplied, the (current -> new) transition is additionally validated.
     """
+    if payload.status is not None:
+        existing = storage.get_task_by_id(task_id)
+        if existing is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Task with id {task_id} not found",
+            )
+        validate_status_transition(existing.status, payload.status)
+
     task = storage.update_task(task_id, payload)
     if task is None:
         raise HTTPException(
