@@ -10,7 +10,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, status
 
 from app.core.config import PORT
-from app.models import TaskCreate, TaskStatus, TaskPriority, TaskResponse
+from app.models import TaskCreate, TaskStatus, TaskPriority, TaskResponse, TaskUpdate
 from app.routers import health
 from app import storage
 
@@ -68,6 +68,27 @@ def list_tasks(
 def get_task(task_id: str) -> TaskResponse:
     """Fetch a single task by id, or 404 if it does not exist."""
     task = storage.get_task_by_id(task_id)
+    if task is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task with id {task_id} not found",
+        )
+    return task
+
+
+@app.patch(
+    "/tasks/{task_id}",
+    response_model=TaskResponse,
+    tags=["tasks"],
+)
+def update_task(task_id: str, payload: TaskUpdate) -> TaskResponse:
+    """Apply a partial update to a task, or 404 if it does not exist.
+
+    Body validation (blank/overlong title, invalid status or priority,
+    unknown fields) is handled by the TaskUpdate Pydantic model, which
+    returns HTTP 422 automatically on failure.
+    """
+    task = storage.update_task(task_id, payload)
     if task is None:
         raise HTTPException(
             status_code=404,
