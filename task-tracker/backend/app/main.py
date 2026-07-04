@@ -97,6 +97,20 @@ def update_task(task_id: str, payload: TaskUpdate) -> TaskResponse:
     return task
 
 
+@app.delete(
+    "/tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["tasks"],
+)
+def delete_task(task_id: str) -> None:
+    """Delete a task by id. Returns 204 on success, or 404 if it does not exist."""
+    if not storage.delete_task(task_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task with id {task_id} not found",
+        )
+
+
 if __name__ == "__main__":
     # Lets the app be started with `python -m app.main` as an
     # alternative to the `uvicorn` command shown above.
