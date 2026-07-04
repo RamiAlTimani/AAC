@@ -1,7 +1,7 @@
 # Pinned dependencies for the Task Tracker backend.
 fastapi==0.139.0
-https>=0.27
+httpx==0.28.1
 uvicorn[standard]==0.49.0
 pydantic==2.13.4
-pytest>=8
+pytest==9.1.1
 python-dotenv==1.2.2
