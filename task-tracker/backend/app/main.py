@@ -7,7 +7,7 @@ or directly with:
     python -m app.main
 """
 import uvicorn
-from fastapi import FastAPI, status
+from fastapi import FastAPI, HTTPException, status
 
 from app.core.config import PORT
 from app.models import TaskCreate, TaskStatus, TaskPriority, TaskResponse
@@ -58,6 +58,22 @@ def list_tasks(
     Invalid enum values in the query string are rejected with 422 by FastAPI.
     """
     return storage.get_all_tasks(status=status, priority=priority)
+
+
+@app.get(
+    "/tasks/{task_id}",
+    response_model=TaskResponse,
+    tags=["tasks"],
+)
+def get_task(task_id: str) -> TaskResponse:
+    """Fetch a single task by id, or 404 if it does not exist."""
+    task = storage.get_task_by_id(task_id)
+    if task is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task with id {task_id} not found",
+        )
+    return task
 
 
 if __name__ == "__main__":
