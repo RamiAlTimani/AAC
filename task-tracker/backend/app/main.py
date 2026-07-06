@@ -8,6 +8,7 @@ or directly with:
 """
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.business_rules import validate_status_transition
 from app.core.config import PORT
@@ -21,6 +22,15 @@ app = FastAPI(
     title="Task Tracker API",
     description="REST API backend for the Task Tracker learning project.",
     version="0.1.0",
+)
+
+# Allow the local frontend (served by Live Server) to read API responses from
+# the browser. Scoped to the known dev origin only — not a wildcard.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5500", "http://127.0.0.1:5500"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Mount the health-check router.
