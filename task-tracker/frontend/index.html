@@ -45,6 +45,10 @@
             max-width: 1180px;
             margin: 0 auto;
             padding: 32px 24px 8px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
         }
 
         .page-header h1 {
@@ -208,6 +212,181 @@
             outline-offset: 1px;
         }
 
+        /* ---- Buttons (header + modal) ---------------------------------- */
+        .btn-primary {
+            font: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #fff;
+            background: var(--ink);
+            border: 1px solid var(--ink);
+            border-radius: 6px;
+            padding: 7px 16px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-primary:hover {
+            background: #2a3543;
+        }
+
+        .btn-secondary {
+            font: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--ink-soft);
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 7px 16px;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: var(--surface-sunk);
+            color: var(--ink);
+        }
+
+        .btn-primary:focus-visible,
+        .btn-secondary:focus-visible {
+            outline: 2px solid var(--p-medium);
+            outline-offset: 2px;
+        }
+
+        /* ---- Modal ----------------------------------------------------- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 48px 16px;
+            overflow-y: auto;
+            background: rgba(20, 30, 45, 0.45);
+        }
+
+        .modal-overlay[hidden] {
+            display: none;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 460px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px 22px 22px;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .modal-close {
+            font: inherit;
+            font-size: 22px;
+            line-height: 1;
+            color: var(--ink-faint);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+
+        .modal-close:hover {
+            color: var(--ink);
+        }
+
+        .field {
+            margin-bottom: 14px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--ink-soft);
+            margin-bottom: 5px;
+        }
+
+        .field input,
+        .field textarea,
+        .field select {
+            width: 100%;
+            font: inherit;
+            font-size: 14px;
+            color: var(--ink);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+
+        .field textarea {
+            resize: vertical;
+        }
+
+        .field input:focus,
+        .field textarea:focus,
+        .field select:focus {
+            outline: 2px solid var(--p-medium);
+            outline-offset: 1px;
+            border-color: var(--p-medium);
+        }
+
+        .field-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .field-row .field {
+            flex: 1;
+        }
+
+        .field-error {
+            margin: 5px 0 0;
+            font-size: 12px;
+            color: var(--p-high);
+        }
+
+        .field-error[hidden] {
+            display: none;
+        }
+
+        /* Form-level banner for server errors not tied to a single field. */
+        .form-banner {
+            margin-bottom: 14px;
+            padding: 9px 12px;
+            border: 1px solid var(--p-high);
+            border-radius: 6px;
+            background: rgba(229, 72, 77, 0.06);
+            color: var(--ink);
+            font-size: 13px;
+        }
+
+        .form-banner[hidden] {
+            display: none;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
         /* ---- Board-level states (loading / error) ---------------------- */
         .board[hidden],
         .board-status[hidden] {
@@ -340,8 +519,11 @@
 <body>
 
     <header class="page-header">
-        <h1>Task Tracker</h1>
-        <p>A simple Kanban board for moving work from idea to done.</p>
+        <div>
+            <h1>Task Tracker</h1>
+            <p>A simple Kanban board for moving work from idea to done.</p>
+        </div>
+        <button type="button" id="new-task-btn" class="btn-primary">New Task</button>
     </header>
 
     <!-- Board-level status: shown during loading and on fetch failure. -->
@@ -386,6 +568,66 @@
             </div>
         </article>
     </template>
+
+    <!-- Create/edit task modal. Hidden until opened from "New Task" or a card's Edit. -->
+    <div id="task-modal" class="modal-overlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal-header">
+                <h2 id="modal-title" class="modal-title">New Task</h2>
+                <button type="button" id="modal-close" class="modal-close" aria-label="Close">&times;</button>
+            </div>
+
+            <form id="task-form" novalidate>
+                <input type="hidden" name="taskId" id="field-taskId">
+
+                <div class="form-banner" id="form-banner" hidden></div>
+
+                <div class="field">
+                    <label for="field-title">Title</label>
+                    <input type="text" id="field-title" name="title" autocomplete="off">
+                    <p class="field-error" data-error-for="title" hidden></p>
+                </div>
+
+                <div class="field">
+                    <label for="field-description">Description</label>
+                    <textarea id="field-description" name="description" rows="3"></textarea>
+                    <p class="field-error" data-error-for="description" hidden></p>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="field-status">Status</label>
+                        <select id="field-status" name="status">
+                            <option value="ToDo">To Do</option>
+                            <option value="InProgress">In Progress</option>
+                            <option value="Done">Done</option>
+                        </select>
+                        <p class="field-error" data-error-for="status" hidden></p>
+                    </div>
+                    <div class="field">
+                        <label for="field-priority">Priority</label>
+                        <select id="field-priority" name="priority">
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <p class="field-error" data-error-for="priority" hidden></p>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="field-assignee">Assignee</label>
+                    <input type="text" id="field-assignee" name="assignee" autocomplete="off">
+                    <p class="field-error" data-error-for="assignee" hidden></p>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="modal-cancel" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script>
         const API_BASE = "http://localhost:8000";
@@ -674,6 +916,170 @@
             const id = event.dataTransfer.getData("text/plain") || draggedId;
             if (id == null || id === "") return;
             moveTask(id, list.dataset.status);
+        });
+
+        // ---- Create / edit modal ----------------------------------------
+
+        const modal = document.getElementById("task-modal");
+        const form = document.getElementById("task-form");
+        const modalTitle = document.getElementById("modal-title");
+        const formBanner = document.getElementById("form-banner");
+
+        // Wipe both the form-level banner and every per-field error slot.
+        function clearModalErrors() {
+            formBanner.hidden = true;
+            formBanner.textContent = "";
+            form.querySelectorAll(".field-error").forEach((slot) => {
+                slot.hidden = true;
+                slot.textContent = "";
+            });
+        }
+
+        // Show a field-level error, falling back to the banner if there's no
+        // matching slot for the field name.
+        function showFieldError(field, message) {
+            const slot = form.querySelector(`.field-error[data-error-for="${field}"]`);
+            if (slot) {
+                slot.textContent = message;
+                slot.hidden = false;
+            } else {
+                showBannerError(message);
+            }
+        }
+
+        function showBannerError(message) {
+            // Append so multiple unmapped errors don't clobber each other.
+            formBanner.textContent = formBanner.textContent
+                ? `${formBanner.textContent}; ${message}`
+                : message;
+            formBanner.hidden = false;
+        }
+
+        // Route a 422 body onto field slots. FastAPI sends
+        // { detail: [{ loc: ["body", "title"], msg }] }; a plain string detail
+        // (or anything else) goes to the banner.
+        function showValidationErrors(detail) {
+            if (Array.isArray(detail)) {
+                for (const item of detail) {
+                    const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
+                    showFieldError(field, item.msg || "Invalid value");
+                }
+                return;
+            }
+            showBannerError(typeof detail === "string" ? detail : "Couldn't save the task.");
+        }
+
+        // Open in create mode (no task) or edit mode (task from the board data).
+        function openModal(task) {
+            clearModalErrors();
+            form.reset();
+
+            // form.elements.<name> avoids the HTMLFormElement named-getter
+            // collision with inherited props (e.g. form.title === the attribute).
+            const f = form.elements;
+            if (task) {
+                modalTitle.textContent = "Edit Task";
+                f.taskId.value = task.id;
+                f.title.value = task.title || "";
+                f.description.value = task.description || "";
+                f.status.value = task.status || "ToDo";
+                f.priority.value = task.priority || "Medium";
+                f.assignee.value = task.assignee || "";
+            } else {
+                modalTitle.textContent = "New Task";
+                f.taskId.value = "";
+                f.status.value = "ToDo";
+                f.priority.value = "Medium";
+            }
+
+            modal.hidden = false;
+            f.title.focus();
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            clearModalErrors();
+        }
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            clearModalErrors();
+
+            const f = form.elements;
+            const title = f.title.value.trim();
+            if (!title) {
+                showFieldError("title", "Title is required");
+                f.title.focus();
+                return; // client validation failed — no request
+            }
+
+            const assignee = f.assignee.value.trim();
+            const payload = {
+                title,
+                description: f.description.value, // empty stays "" per spec
+                status: f.status.value,
+                priority: f.priority.value,
+                assignee: assignee === "" ? null : assignee,
+            };
+
+            const id = f.taskId.value;
+            const isEdit = id !== "";
+            const url = isEdit ? `${API_BASE}/tasks/${id}` : `${API_BASE}/tasks`;
+            const method = isEdit ? "PATCH" : "POST";
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    await fetchTasks(); // refresh the board with server truth
+                    return;
+                }
+
+                if (response.status === 422) {
+                    let detail = null;
+                    try {
+                        detail = (await response.json()).detail;
+                    } catch (_) {
+                        /* non-JSON body — showValidationErrors falls back to banner */
+                    }
+                    showValidationErrors(detail); // keep modal open
+                    return;
+                }
+
+                showBannerError(await extractServerError(response));
+            } catch (err) {
+                console.error(err);
+                showBannerError("Couldn't reach the server — your change wasn't saved.");
+            }
+        });
+
+        // Open triggers.
+        document.getElementById("new-task-btn").addEventListener("click", () => openModal());
+
+        // Edit is delegated on the board so it survives re-renders; look the task
+        // up in the shared `tasks` array by the card's id.
+        boardEl.addEventListener("click", (event) => {
+            const btn = event.target.closest(".edit-btn");
+            if (!btn) return;
+            const card = btn.closest(".card");
+            if (!card) return;
+            const task = tasks.find((t) => String(t.id) === String(card.dataset.id));
+            if (task) openModal(task);
+        });
+
+        // Close triggers: Cancel, close button, overlay click, Escape.
+        document.getElementById("modal-cancel").addEventListener("click", closeModal);
+        document.getElementById("modal-close").addEventListener("click", closeModal);
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) closeModal(); // click on overlay, not the dialog
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !modal.hidden) closeModal();
         });
 
         // Kick things off: loading → ready (or error, with Retry).
