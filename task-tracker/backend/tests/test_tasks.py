@@ -148,6 +148,19 @@ def test_patch_valid_transition_todo_to_inprogress_returns_200(client, created_t
     assert response.json()["status"] == "InProgress"
 
 
+def test_patch_valid_transition_inprogress_to_done_returns_200(client, created_task):
+    # Fixture task starts in "ToDo"; move it to "InProgress" so the completing
+    # InProgress -> Done transition can be exercised.
+    client.patch(f"/tasks/{created_task['id']}", json={"status": "InProgress"})
+
+    response = client.patch(
+        f"/tasks/{created_task['id']}",
+        json={"status": "Done"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "Done"
+
+
 def test_patch_invalid_transition_todo_to_done_returns_422(client, created_task):
     # ToDo -> Done is not an allowed transition.
     response = client.patch(
