@@ -208,6 +208,126 @@
             outline-offset: 1px;
         }
 
+        /* ---- Board-level states (loading / error) ---------------------- */
+        .board[hidden],
+        .board-status[hidden] {
+            display: none;
+        }
+
+        .board-status {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 20px 24px 48px;
+        }
+
+        .status-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            box-shadow: var(--shadow);
+            color: var(--ink-soft);
+            font-size: 14px;
+        }
+
+        .status-panel.is-error {
+            border-color: var(--p-high);
+            color: var(--ink);
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--line);
+            border-top-color: var(--ink-soft);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .retry-btn {
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            background: var(--p-high);
+            border: 1px solid var(--p-high);
+            border-radius: 6px;
+            padding: 5px 14px;
+            cursor: pointer;
+        }
+
+        .retry-btn:focus-visible {
+            outline: 2px solid var(--p-medium);
+            outline-offset: 2px;
+        }
+
+        /* Placeholder shown in a column with no tasks — keeps the column
+           visible and preserves the drop area for later drag-and-drop. */
+        .card-list-empty {
+            margin: 0;
+            padding: 14px 12px;
+            text-align: center;
+            font-size: 12.5px;
+            color: var(--ink-faint);
+            border: 1px dashed var(--line);
+            border-radius: 8px;
+        }
+
+        /* ---- Drag & drop ----------------------------------------------- */
+        .card {
+            cursor: grab;
+        }
+
+        .card.is-dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        /* Highlight the column being hovered as a valid drop target. */
+        .card-list.is-drop-target {
+            outline: 2px dashed var(--p-medium);
+            outline-offset: 3px;
+            border-radius: 8px;
+        }
+
+        /* Transient message for drag/drop failures (revert notices). */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            max-width: 420px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: var(--ink);
+            color: #fff;
+            font-size: 13.5px;
+            box-shadow: var(--shadow);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            z-index: 10;
+        }
+
+        .toast.is-visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.is-error {
+            background: var(--p-high);
+        }
+
         /* ---- Responsive ------------------------------------------------ */
         @media (max-width: 720px) {
             .board {
@@ -223,6 +343,9 @@
         <h1>Task Tracker</h1>
         <p>A simple Kanban board for moving work from idea to done.</p>
     </header>
+
+    <!-- Board-level status: shown during loading and on fetch failure. -->
+    <div id="board-status" class="board-status" hidden></div>
 
     <main class="board">
         <!-- data-status holds the stable, API-facing key; the visible label differs. -->
@@ -253,7 +376,7 @@
 
     <!-- Card markup lives in one place so tasks can be rendered from data later. -->
     <template id="card-template">
-        <article class="card" data-id="" data-priority="">
+        <article class="card" data-id="" data-priority="" draggable="true">
             <h3 class="card-title"></h3>
             <p class="card-description"></p>
             <div class="card-meta">
@@ -278,6 +401,9 @@
 
         const template = document.getElementById("card-template");
 
+        const boardEl = document.querySelector(".board");
+        const statusEl = document.getElementById("board-status");
+
         // Pull tasks from the API into the shared `tasks` array, then render.
         async function fetchTasks() {
             const response = await fetch(`${API_BASE}/tasks`);
@@ -287,6 +413,72 @@
             tasks = await response.json();
             renderBoard(tasks);
             return tasks;
+        }
+
+        // Placeholder for a column with no tasks. Sits inside the card-list so
+        // the column keeps its shape and remains a valid drop target later.
+        function renderEmptyPlaceholder() {
+            const el = document.createElement("p");
+            el.className = "card-list-empty";
+            el.textContent = "No tasks";
+            return el;
+        }
+
+        function buildLoadingPanel() {
+            const panel = document.createElement("div");
+            panel.className = "status-panel";
+            panel.setAttribute("role", "status");
+            panel.innerHTML =
+                '<span class="spinner" aria-hidden="true"></span><span>Loading tasks…</span>';
+            return panel;
+        }
+
+        function buildErrorPanel() {
+            const panel = document.createElement("div");
+            panel.className = "status-panel is-error";
+            panel.setAttribute("role", "alert");
+
+            const message = document.createElement("span");
+            message.textContent = "Couldn't load tasks. Check your connection and try again.";
+
+            const retry = document.createElement("button");
+            retry.type = "button";
+            retry.className = "retry-btn";
+            retry.textContent = "Retry";
+            retry.addEventListener("click", loadTasks);
+
+            panel.append(message, retry);
+            return panel;
+        }
+
+        // Board-level state switch. "ready" (used for both populated and empty
+        // boards) shows the columns; "loading"/"error" show a status panel.
+        function setBoardState(state) {
+            if (state === "ready") {
+                statusEl.hidden = true;
+                statusEl.innerHTML = "";
+                boardEl.hidden = false;
+                return;
+            }
+
+            boardEl.hidden = true;
+            statusEl.innerHTML = "";
+            statusEl.appendChild(
+                state === "error" ? buildErrorPanel() : buildLoadingPanel()
+            );
+            statusEl.hidden = false;
+        }
+
+        // Orchestrates the four UI states around a single fetch.
+        async function loadTasks() {
+            setBoardState("loading");
+            try {
+                await fetchTasks(); // sets `tasks` and renders columns (incl. empty)
+                setBoardState("ready");
+            } catch (err) {
+                console.error(err);
+                setBoardState("error");
+            }
         }
 
         function renderCard(task) {
@@ -348,18 +540,144 @@
                 const columnTasks = groups[status] || [];
 
                 list.innerHTML = "";
-                for (const task of columnTasks) {
-                    list.appendChild(renderCard(task));
+                if (columnTasks.length === 0) {
+                    // Empty columns stay visible and keep their drop area.
+                    list.appendChild(renderEmptyPlaceholder());
+                } else {
+                    for (const task of columnTasks) {
+                        list.appendChild(renderCard(task));
+                    }
                 }
 
                 column.querySelector("[data-count]").textContent = columnTasks.length;
             });
         }
 
-        // Kick things off. Render an empty board first so columns show even if the
-        // fetch fails, then surface any error to the console.
-        renderBoard(tasks);
-        fetchTasks().catch((err) => console.error(err));
+        // ---- Drag & drop -------------------------------------------------
+
+        // The card currently being dragged, kept alongside dataTransfer since
+        // dataTransfer's data is not readable during dragover in every browser.
+        let draggedId = null;
+        let toastTimer = null;
+
+        function clearDropTargets() {
+            document
+                .querySelectorAll(".card-list.is-drop-target")
+                .forEach((list) => list.classList.remove("is-drop-target"));
+        }
+
+        // Brief, self-dismissing message — used for drag revert notices.
+        function showToast(message, isError = false) {
+            let toast = document.getElementById("toast");
+            if (!toast) {
+                toast = document.createElement("div");
+                toast.id = "toast";
+                toast.className = "toast";
+                toast.setAttribute("role", "alert");
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.toggle("is-error", isError);
+            toast.classList.add("is-visible");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 5000);
+        }
+
+        // Pull a readable message out of a 4xx response. FastAPI validation
+        // errors arrive as { detail: [{ msg, ... }] }; simpler errors as a
+        // { detail: "..." } string. Fall back to the status code.
+        async function extractServerError(response) {
+            try {
+                const data = await response.json();
+                if (typeof data.detail === "string") return data.detail;
+                if (Array.isArray(data.detail)) {
+                    const msg = data.detail
+                        .map((d) => d && d.msg)
+                        .filter(Boolean)
+                        .join("; ");
+                    if (msg) return msg;
+                }
+            } catch (_) {
+                /* body wasn't JSON — fall through to the generic message */
+            }
+            return `Couldn't update task (${response.status}).`;
+        }
+
+        // Move a card to a new status: optimistic update first, then PATCH.
+        // Reverts and re-renders if the server rejects it or is unreachable.
+        async function moveTask(id, targetStatus) {
+            const task = tasks.find((t) => String(t.id) === String(id));
+            if (!task) return;
+
+            const previousStatus = task.status;
+            // No-op when dropped back on its own column.
+            if (previousStatus === targetStatus) return;
+
+            // Optimistic: reflect the move locally before the request resolves.
+            task.status = targetStatus;
+            renderBoard(tasks);
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: targetStatus }),
+                });
+
+                if (!response.ok) {
+                    task.status = previousStatus;
+                    renderBoard(tasks);
+                    showToast(await extractServerError(response), true);
+                }
+                // 200: nothing to do — the optimistic state already stands.
+            } catch (err) {
+                console.error(err);
+                task.status = previousStatus;
+                renderBoard(tasks);
+                showToast("Couldn't reach the server — your change wasn't saved.", true);
+            }
+        }
+
+        // Delegated on the board so handlers survive re-renders.
+        boardEl.addEventListener("dragstart", (event) => {
+            const card = event.target.closest(".card");
+            if (!card) return;
+            draggedId = card.dataset.id;
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", card.dataset.id);
+            card.classList.add("is-dragging");
+        });
+
+        boardEl.addEventListener("dragend", (event) => {
+            const card = event.target.closest(".card");
+            if (card) card.classList.remove("is-dragging");
+            clearDropTargets();
+            draggedId = null;
+        });
+
+        boardEl.addEventListener("dragover", (event) => {
+            const list = event.target.closest(".card-list");
+            if (!list) return;
+            event.preventDefault(); // required to allow a drop
+            event.dataTransfer.dropEffect = "move";
+            if (!list.classList.contains("is-drop-target")) {
+                clearDropTargets();
+                list.classList.add("is-drop-target");
+            }
+        });
+
+        boardEl.addEventListener("drop", (event) => {
+            const list = event.target.closest(".card-list");
+            if (!list) return;
+            event.preventDefault();
+            clearDropTargets();
+            const id = event.dataTransfer.getData("text/plain") || draggedId;
+            if (id == null || id === "") return;
+            moveTask(id, list.dataset.status);
+        });
+
+        // Kick things off: loading → ready (or error, with Retry).
+        loadTasks();
     </script>
 
 </body>
