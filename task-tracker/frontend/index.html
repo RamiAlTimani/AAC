@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Tracker</title>
+
+    <style>
+        /* ---- Design tokens --------------------------------------------- */
+        :root {
+            --bg: #eef1f5;
+            --surface: #ffffff;
+            --surface-sunk: #f6f8fb;
+            --ink: #1c2430;
+            --ink-soft: #55606f;
+            --ink-faint: #8a94a3;
+            --line: #dfe4ec;
+
+            /* Priority accents — the one place we spend color. */
+            --p-high: #e5484d;
+            --p-medium: #d98a15;
+            --p-low: #3a8f5c;
+
+            --radius: 10px;
+            --shadow: 0 1px 2px rgba(20, 30, 45, 0.06), 0 4px 12px rgba(20, 30, 45, 0.05);
+            --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
+            color: var(--ink);
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.45;
+        }
+
+        /* ---- Header ---------------------------------------------------- */
+        .page-header {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 32px 24px 8px;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header p {
+            margin: 4px 0 0;
+            color: var(--ink-soft);
+            font-size: 14.5px;
+        }
+
+        /* ---- Board ----------------------------------------------------- */
+        .board {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 20px 24px 48px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .column {
+            background: var(--surface-sunk);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 12px;
+        }
+
+        .column-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 6px 12px;
+        }
+
+        .column-title {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+        }
+
+        .column-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ink-faint);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 1px 8px;
+        }
+
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 24px;
+        }
+
+        /* ---- Card ------------------------------------------------------ */
+        .card {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-left: 3px solid var(--line); /* overridden per priority below */
+            border-radius: 8px;
+            padding: 12px 14px;
+            box-shadow: var(--shadow);
+        }
+
+        /* Signature: priority reads off the left edge and a small pill. */
+        .card[data-priority="High"] {
+            border-left-color: var(--p-high);
+        }
+
+        .card[data-priority="Medium"] {
+            border-left-color: var(--p-medium);
+        }
+
+        .card[data-priority="Low"] {
+            border-left-color: var(--p-low);
+        }
+
+        .card-title {
+            margin: 0;
+            font-size: 14.5px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .card-description {
+            margin: 6px 0 0;
+            font-size: 13px;
+            color: var(--ink-soft);
+        }
+
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .priority-pill {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            padding: 2px 8px;
+            border-radius: 20px;
+            color: #fff;
+        }
+
+        .priority-pill[data-priority="High"] {
+            background: var(--p-high);
+        }
+
+        .priority-pill[data-priority="Medium"] {
+            background: var(--p-medium);
+        }
+
+        .priority-pill[data-priority="Low"] {
+            background: var(--p-low);
+        }
+
+        .assignee {
+            font-size: 12.5px;
+            color: var(--ink-soft);
+        }
+
+        .assignee.is-unassigned {
+            color: var(--ink-faint);
+            font-style: italic;
+        }
+
+        .edit-btn {
+            margin-left: auto;
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--ink-soft);
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 3px 10px;
+            cursor: pointer;
+        }
+
+        .edit-btn:hover {
+            background: var(--surface-sunk);
+            color: var(--ink);
+        }
+
+        .edit-btn:focus-visible {
+            outline: 2px solid var(--p-medium);
+            outline-offset: 1px;
+        }
+
+        /* ---- Responsive ------------------------------------------------ */
+        @media (max-width: 720px) {
+            .board {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="page-header">
+        <h1>Task Tracker</h1>
+        <p>A simple Kanban board for moving work from idea to done.</p>
+    </header>
+
+    <main class="board">
+        <!-- data-status holds the stable, API-facing key; the visible label differs. -->
+        <section class="column" data-status="ToDo">
+            <div class="column-header">
+                <span class="column-title">To Do</span>
+                <span class="column-count" data-count>0</span>
+            </div>
+            <div class="card-list" data-status="ToDo"></div>
+        </section>
+
+        <section class="column" data-status="InProgress">
+            <div class="column-header">
+                <span class="column-title">In Progress</span>
+                <span class="column-count" data-count>0</span>
+            </div>
+            <div class="card-list" data-status="InProgress"></div>
+        </section>
+
+        <section class="column" data-status="Done">
+            <div class="column-header">
+                <span class="column-title">Done</span>
+                <span class="column-count" data-count>0</span>
+            </div>
+            <div class="card-list" data-status="Done"></div>
+        </section>
+    </main>
+
+    <!-- Card markup lives in one place so tasks can be rendered from data later. -->
+    <template id="card-template">
+        <article class="card" data-id="" data-priority="">
+            <h3 class="card-title"></h3>
+            <p class="card-description"></p>
+            <div class="card-meta">
+                <span class="priority-pill" data-priority=""></span>
+                <span class="assignee"></span>
+                <button type="button" class="edit-btn">Edit</button>
+            </div>
+        </article>
+    </template>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+
+        // The single source of truth. Replaced wholesale by each fetch, then rendered.
+        let tasks = [];
+
+        // Statuses the board can display, in column order. Anything else is ignored.
+        const STATUSES = ["ToDo", "InProgress", "Done"];
+
+        // Lower rank sorts first: High before Medium before Low.
+        const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
+
+        const template = document.getElementById("card-template");
+
+        // Pull tasks from the API into the shared `tasks` array, then render.
+        async function fetchTasks() {
+            const response = await fetch(`${API_BASE}/tasks`);
+            if (!response.ok) {
+                throw new Error(`Failed to load tasks: ${response.status}`);
+            }
+            tasks = await response.json();
+            renderBoard(tasks);
+            return tasks;
+        }
+
+        function renderCard(task) {
+            const card = template.content.firstElementChild.cloneNode(true);
+            card.dataset.id = task.id;
+            card.dataset.priority = task.priority;
+
+            card.querySelector(".card-title").textContent = task.title;
+
+            // Description is optional — drop the element entirely when absent.
+            const description = card.querySelector(".card-description");
+            if (task.description) {
+                description.textContent = task.description;
+            } else {
+                description.remove();
+            }
+
+            const pill = card.querySelector(".priority-pill");
+            pill.dataset.priority = task.priority;
+            pill.textContent = task.priority;
+
+            const assignee = card.querySelector(".assignee");
+            if (task.assignee) {
+                assignee.textContent = task.assignee;
+            } else {
+                assignee.textContent = "Unassigned";
+                assignee.classList.add("is-unassigned");
+            }
+
+            return card;
+        }
+
+        // Group tasks by status, ordering each column by priority (High → Low),
+        // breaking ties by id ascending.
+        function groupByStatus(taskList) {
+            const groups = Object.fromEntries(STATUSES.map((status) => [status, []]));
+
+            for (const task of taskList) {
+                if (groups[task.status]) groups[task.status].push(task);
+            }
+
+            for (const status of STATUSES) {
+                groups[status].sort((a, b) => {
+                    const byPriority = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+                    return byPriority !== 0 ? byPriority : a.id - b.id;
+                });
+            }
+
+            return groups;
+        }
+
+        function renderBoard(taskList) {
+            const groups = groupByStatus(taskList);
+
+            // Render each column independently — empty columns stay visible.
+            document.querySelectorAll(".column").forEach((column) => {
+                const status = column.dataset.status;
+                const list = column.querySelector(".card-list");
+                const columnTasks = groups[status] || [];
+
+                list.innerHTML = "";
+                for (const task of columnTasks) {
+                    list.appendChild(renderCard(task));
+                }
+
+                column.querySelector("[data-count]").textContent = columnTasks.length;
+            });
+        }
+
+        // Kick things off. Render an empty board first so columns show even if the
+        // fetch fails, then surface any error to the console.
+        renderBoard(tasks);
+        fetchTasks().catch((err) => console.error(err));
+    </script>
+
+</body>
+
+</html>
