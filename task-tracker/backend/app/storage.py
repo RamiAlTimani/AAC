@@ -36,6 +36,9 @@ def add_task(payload: TaskCreate) -> TaskResponse:
         status=payload.status,
         priority=payload.priority,
         assignee=payload.assignee,
+        due_date=payload.due_date,
+        # Copy: never share the payload's list object with the stored task.
+        tags=list(payload.tags),
         created_at=now,
         updated_at=now,
     )
