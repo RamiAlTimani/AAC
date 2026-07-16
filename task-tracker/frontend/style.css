@@ -1,0 +1,580 @@
+/* ---- Design tokens --------------------------------------------- */
+:root {
+    /* Neutrals lean cool and low-contrast for a calmer, modern surface. */
+    --bg: #f1f4f9;
+    --surface: #ffffff;
+    --surface-sunk: #f5f7fb;
+    --ink: #10161f;
+    --ink-soft: #515c6b;
+    --ink-faint: #8b95a5;
+    --line: #e4e8f0;
+    --line-strong: #d3d9e4;
+
+    /* Priority accents — the one place we spend color. */
+    --p-high: #e5484d;
+    --p-medium: #d98a15;
+    --p-low: #3a8f5c;
+
+    /* Interaction accent: a calm blue for focus rings and drop targets. */
+    --focus: #3b7ce0;
+    --focus-ring: 0 0 0 3px rgba(59, 124, 224, 0.30);
+
+    /* Corner and elevation scales keep components consistent. */
+    --radius-sm: 8px;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --radius-pill: 999px;
+    --shadow-sm: 0 1px 2px rgba(16, 22, 31, 0.05);
+    --shadow: 0 1px 2px rgba(16, 22, 31, 0.06), 0 6px 16px rgba(16, 22, 31, 0.06);
+    --shadow-lg: 0 12px 32px rgba(16, 22, 31, 0.14);
+
+    --ease: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    --font: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font);
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+}
+
+/* ---- Header ---------------------------------------------------- */
+.page-header {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 24px 8px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.page-header p {
+    margin: 4px 0 0;
+    color: var(--ink-soft);
+    font-size: 14.5px;
+}
+
+/* ---- Board ----------------------------------------------------- */
+.board {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px 24px 48px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.column {
+    background: var(--surface-sunk);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+}
+
+.column-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 12px;
+}
+
+.column-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+.column-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+}
+
+.card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 24px;
+}
+
+/* ---- Card ------------------------------------------------------ */
+.card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line); /* overridden per priority below */
+    border-radius: var(--radius);
+    padding: 13px 15px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--ease), transform var(--ease);
+}
+
+/* Lift on hover so the card reads as a live, grabbable object.
+   Only shadow/transform change here — the priority left edge stays. */
+.card:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-1px);
+}
+
+/* Signature: priority reads off the left edge and a small pill. */
+.card[data-priority="High"] {
+    border-left-color: var(--p-high);
+}
+
+.card[data-priority="Medium"] {
+    border-left-color: var(--p-medium);
+}
+
+.card[data-priority="Low"] {
+    border-left-color: var(--p-low);
+}
+
+.card-title {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.card-description {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--ink-soft);
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.priority-pill {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    color: #fff;
+}
+
+.priority-pill[data-priority="High"] {
+    background: var(--p-high);
+}
+
+.priority-pill[data-priority="Medium"] {
+    background: var(--p-medium);
+}
+
+.priority-pill[data-priority="Low"] {
+    background: var(--p-low);
+}
+
+.assignee {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+}
+
+.assignee.is-unassigned {
+    color: var(--ink-faint);
+    font-style: italic;
+}
+
+.edit-btn {
+    margin-left: auto;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: background var(--ease), color var(--ease), border-color var(--ease);
+}
+
+.edit-btn:hover {
+    background: var(--surface-sunk);
+    border-color: var(--line-strong);
+    color: var(--ink);
+}
+
+.edit-btn:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+}
+
+/* ---- Buttons (header + modal) ---------------------------------- */
+.btn-primary {
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--ease), box-shadow var(--ease), transform var(--ease);
+}
+
+.btn-primary:hover {
+    background: #232e3d;
+    box-shadow: var(--shadow);
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+}
+
+.btn-secondary {
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background var(--ease), color var(--ease), border-color var(--ease);
+}
+
+.btn-secondary:hover {
+    background: var(--surface-sunk);
+    border-color: var(--line-strong);
+    color: var(--ink);
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+/* ---- Modal ----------------------------------------------------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px;
+    overflow-y: auto;
+    background: rgba(16, 22, 31, 0.40);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.modal-overlay[hidden] {
+    display: none;
+}
+
+.modal {
+    width: 100%;
+    max-width: 460px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 20px 22px 22px;
+    animation: modal-in 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.modal-close {
+    font: inherit;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink-faint);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.modal-close:hover {
+    color: var(--ink);
+}
+
+.field {
+    margin-bottom: 14px;
+}
+
+.field label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+}
+
+.field input,
+.field textarea,
+.field select {
+    width: 100%;
+    font: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
+    transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+.field textarea {
+    resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: var(--focus-ring);
+}
+
+.field-row {
+    display: flex;
+    gap: 12px;
+}
+
+.field-row .field {
+    flex: 1;
+}
+
+.field-error {
+    margin: 5px 0 0;
+    font-size: 12px;
+    color: var(--p-high);
+}
+
+.field-error[hidden] {
+    display: none;
+}
+
+/* Form-level banner for server errors not tied to a single field. */
+.form-banner {
+    margin-bottom: 14px;
+    padding: 9px 12px;
+    border: 1px solid var(--p-high);
+    border-radius: 6px;
+    background: rgba(229, 72, 77, 0.06);
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.form-banner[hidden] {
+    display: none;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* ---- Board-level states (loading / error) ---------------------- */
+.board[hidden],
+.board-status[hidden] {
+    display: none;
+}
+
+.board-status {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px 24px 48px;
+}
+
+.status-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    color: var(--ink-soft);
+    font-size: 14px;
+}
+
+.status-panel.is-error {
+    border-color: var(--p-high);
+    color: var(--ink);
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--line);
+    border-top-color: var(--ink-soft);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.retry-btn {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--p-high);
+    border: 1px solid var(--p-high);
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background var(--ease), transform var(--ease);
+}
+
+.retry-btn:hover {
+    background: #cf3b40;
+}
+
+.retry-btn:active {
+    transform: translateY(1px);
+}
+
+.retry-btn:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+/* Placeholder shown in a column with no tasks — keeps the column
+   visible and preserves the drop area for later drag-and-drop. */
+.card-list-empty {
+    margin: 0;
+    padding: 14px 12px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius);
+}
+
+/* ---- Drag & drop ----------------------------------------------- */
+.card {
+    cursor: grab;
+}
+
+.card.is-dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+/* Highlight the column being hovered as a valid drop target. */
+.card-list.is-drop-target {
+    outline: 2px dashed var(--focus);
+    outline-offset: 3px;
+    border-radius: var(--radius);
+}
+
+/* Transient message for drag/drop failures (revert notices). */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    max-width: 420px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    background: var(--ink);
+    color: #fff;
+    font-size: 13.5px;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 10;
+}
+
+.toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast.is-error {
+    background: var(--p-high);
+}
+
+/* ---- Responsive ------------------------------------------------ */
+@media (max-width: 720px) {
+    .board {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Honor a reduced-motion preference: keep the states, drop the motion. */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .card:hover {
+        transform: none;
+    }
+}
