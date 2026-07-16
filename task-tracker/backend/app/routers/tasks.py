@@ -10,7 +10,7 @@ collection and "/{task_id}" for a single task.
 """
 from fastapi import APIRouter, HTTPException, status
 
-from app.business_rules import validate_status_transition
+from app.business_rules import validate_due_date_change, validate_status_transition
 from app.models import TaskCreate, TaskStatus, TaskPriority, TaskResponse, TaskUpdate
 from app import storage
 
@@ -73,17 +73,22 @@ def update_task(task_id: str, payload: TaskUpdate) -> TaskResponse:
 
     Body validation (blank/overlong title, invalid status or priority,
     unknown fields) is handled by the TaskUpdate Pydantic model, which
-    returns HTTP 422 automatically on failure. When a new status is
-    supplied, the (current -> new) transition is additionally validated.
+    returns HTTP 422 automatically on failure. When a new status or a new
+    due date is supplied, it is additionally validated against the existing
+    task, which is why the lookup happens up front for those two cases. That
+    ordering also makes 404 take precedence over 422 for a missing task.
     """
-    if payload.status is not None:
+    if payload.status is not None or payload.due_date is not None:
         existing = storage.get_task_by_id(task_id)
         if existing is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"Task with id {task_id} not found",
             )
-        validate_status_transition(existing.status, payload.status)
+        if payload.status is not None:
+            validate_status_transition(existing.status, payload.status)
+        if payload.due_date is not None:
+            validate_due_date_change(existing.due_date, payload.due_date)
 
     task = storage.update_task(task_id, payload)
     if task is None:
