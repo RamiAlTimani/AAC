@@ -3,6 +3,11 @@ const API_BASE = "http://localhost:8000";
 // The single source of truth. Replaced wholesale by each fetch, then rendered.
 let tasks = [];
 
+// Client-side filter state (DD-4, TG-3). Every render goes through render(),
+// so drags, reverts and refreshes all respect these without knowing about them.
+let overdueOnly = false;
+let tagFilter = ""; // "" means "All tags"
+
 // Statuses the board can display, in column order. Anything else is ignored.
 const STATUSES = ["ToDo", "InProgress", "Done"];
 
@@ -11,8 +16,133 @@ const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
 
 const template = document.getElementById("card-template");
 
+// ---- Due date & tag helpers --------------------------------------
+
+// Local today as YYYY-MM-DD. Built from local parts rather than
+// toISOString(), which would shift the date across the UTC boundary.
+function todayISO() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+}
+
+// DD-3: derived, never stored. Done is never overdue, no date is never
+// overdue, due today is not overdue. ISO date strings compare correctly
+// as strings, so no Date parsing is needed.
+function isOverdue(task) {
+    if (task.status === "Done" || !task.due_date) return false;
+    return task.due_date < todayISO();
+}
+
+// Parse as local parts — new Date("2026-07-20") is parsed as UTC and can
+// render as the day before.
+function formatDueDate(iso) {
+    const [year, month, day] = iso.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+    });
+}
+
+// TG-4: colour comes from the casefolded text, so `Bug` and `bug` are one
+// category on every card. Nothing about colour is stored server-side.
+function tagHue(tag) {
+    const text = tag.toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+        hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+    }
+    return hash % 360;
+}
+
+function buildTagChip(tag) {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip";
+    chip.style.setProperty("--tag-hue", tagHue(tag));
+    chip.textContent = tag;
+    return chip;
+}
+
 const boardEl = document.querySelector(".board");
 const statusEl = document.getElementById("board-status");
+
+// ---- Filters (client-side, over the fetched list) -----------------
+
+const overdueFilterEl = document.getElementById("filter-overdue");
+const tagFilterEl = document.getElementById("filter-tag");
+
+function taskTags(task) {
+    return Array.isArray(task.tags) ? task.tags : [];
+}
+
+// TG-4: `Bug` and `bug` are one entry — keyed by casefold, first casing seen
+// wins. Sorted casefolded so the order doesn't depend on that casing.
+function distinctTags() {
+    const seen = new Map();
+    for (const task of tasks) {
+        for (const tag of taskTags(task)) {
+            const key = tag.toLowerCase();
+            if (!seen.has(key)) seen.set(key, tag);
+        }
+    }
+    return [...seen.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([, tag]) => tag);
+}
+
+// Rebuild the option list from the current tasks. A selected tag that no
+// longer exists anywhere falls back to "All tags" rather than filtering
+// the board down to nothing forever.
+function rebuildTagOptions() {
+    const options = distinctTags();
+    if (tagFilter && !options.some((t) => t.toLowerCase() === tagFilter)) {
+        tagFilter = "";
+    }
+
+    tagFilterEl.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = "All tags";
+    tagFilterEl.appendChild(all);
+
+    for (const tag of options) {
+        const option = document.createElement("option");
+        option.value = tag.toLowerCase(); // TG-4: match case-insensitively
+        option.textContent = tag;
+        tagFilterEl.appendChild(option);
+    }
+
+    tagFilterEl.value = tagFilter;
+}
+
+// The two filters combine with AND (TG-3). isOverdue() owns the rule (DD-3).
+function applyFilters() {
+    return tasks.filter((task) => {
+        if (overdueOnly && !isOverdue(task)) return false;
+        if (tagFilter && !taskTags(task).some((t) => t.toLowerCase() === tagFilter)) {
+            return false;
+        }
+        return true;
+    });
+}
+
+// The one entry point to the board. Filtering happens here, between the data
+// and the render, so grouping, priority sort and the count pills all work over
+// the filtered set. Never call renderBoard(tasks) directly.
+function render() {
+    renderBoard(applyFilters());
+}
+
+overdueFilterEl.addEventListener("change", () => {
+    overdueOnly = overdueFilterEl.checked;
+    render(); // pure re-render of data already in memory — no request
+});
+
+tagFilterEl.addEventListener("change", () => {
+    tagFilter = tagFilterEl.value;
+    render();
+});
 
 // Pull tasks from the API into the shared `tasks` array, then render.
 async function fetchTasks() {
@@ -21,7 +151,8 @@ async function fetchTasks() {
         throw new Error(`Failed to load tasks: ${response.status}`);
     }
     tasks = await response.json();
-    renderBoard(tasks);
+    rebuildTagOptions();
+    render();
     return tasks;
 }
 
@@ -116,6 +247,27 @@ function renderCard(task) {
     } else {
         assignee.textContent = "Unassigned";
         assignee.classList.add("is-unassigned");
+    }
+
+    // Due date is optional — drop the element entirely when absent.
+    const due = card.querySelector(".due-date");
+    if (task.due_date) {
+        const overdue = isOverdue(task);
+        due.textContent = overdue
+            ? `Overdue · ${formatDueDate(task.due_date)}`
+            : `Due ${formatDueDate(task.due_date)}`;
+        due.classList.toggle("is-overdue", overdue);
+        card.classList.toggle("is-overdue", overdue);
+    } else {
+        due.remove();
+    }
+
+    const tagList = card.querySelector(".card-tags");
+    const tags = Array.isArray(task.tags) ? task.tags : [];
+    if (tags.length === 0) {
+        tagList.remove();
+    } else {
+        for (const tag of tags) tagList.appendChild(buildTagChip(tag));
     }
 
     return card;
@@ -224,8 +376,10 @@ async function moveTask(id, targetStatus) {
     if (previousStatus === targetStatus) return;
 
     // Optimistic: reflect the move locally before the request resolves.
+    // Rendering through render() means a card moved out of the filtered set
+    // simply disappears — no special case needed here.
     task.status = targetStatus;
-    renderBoard(tasks);
+    render();
 
     try {
         const response = await fetch(`${API_BASE}/tasks/${id}`, {
@@ -236,14 +390,14 @@ async function moveTask(id, targetStatus) {
 
         if (!response.ok) {
             task.status = previousStatus;
-            renderBoard(tasks);
+            render();
             showToast(await extractServerError(response), true);
         }
         // 200: nothing to do — the optimistic state already stands.
     } catch (err) {
         console.error(err);
         task.status = previousStatus;
-        renderBoard(tasks);
+        render();
         showToast("Couldn't reach the server — your change wasn't saved.", true);
     }
 }
@@ -292,6 +446,76 @@ const modal = document.getElementById("task-modal");
 const form = document.getElementById("task-form");
 const modalTitle = document.getElementById("modal-title");
 const formBanner = document.getElementById("form-banner");
+const tagChipsEl = document.getElementById("tag-chips");
+const tagEntry = document.getElementById("tag-entry");
+
+// The chips are the source of truth for the submitted `tags` array — the
+// text box only stages the tag currently being typed.
+let tagChips = [];
+
+function renderTagChips() {
+    tagChipsEl.innerHTML = "";
+    tagChips.forEach((tag, index) => {
+        const chip = buildTagChip(tag);
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "tag-chip-remove";
+        remove.dataset.index = index;
+        remove.setAttribute("aria-label", `Remove tag ${tag}`);
+        remove.textContent = "×";
+        chip.appendChild(remove);
+        tagChipsEl.appendChild(chip);
+    });
+}
+
+function setTagChips(tags) {
+    tagChips = [];
+    for (const tag of tags || []) addTagChip(tag);
+    renderTagChips();
+}
+
+// TG-5: blank/whitespace-only entries are dropped silently, not an error.
+// TG-4: dedupe case-insensitively, first casing entered wins.
+function addTagChip(raw) {
+    const tag = String(raw).trim();
+    if (tag === "") return;
+    const exists = tagChips.some((t) => t.toLowerCase() === tag.toLowerCase());
+    if (exists) return;
+    tagChips.push(tag);
+}
+
+// Commit whatever is staged in the text box, then clear it.
+function commitTagEntry() {
+    addTagChip(tagEntry.value);
+    tagEntry.value = "";
+    renderTagChips();
+}
+
+tagEntry.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+        event.preventDefault(); // Enter must not submit the form
+        commitTagEntry();
+        return;
+    }
+    // Backspace on an empty box removes the last chip.
+    if (event.key === "Backspace" && tagEntry.value === "" && tagChips.length) {
+        tagChips.pop();
+        renderTagChips();
+    }
+});
+
+tagChipsEl.addEventListener("click", (event) => {
+    const btn = event.target.closest(".tag-chip-remove");
+    if (!btn) return;
+    tagChips.splice(Number(btn.dataset.index), 1);
+    renderTagChips();
+});
+
+// Clicking the chip container's padding focuses the text box.
+document.getElementById("tag-input").addEventListener("click", (event) => {
+    if (event.target.closest(".tag-chip")) return;
+    tagEntry.focus();
+});
 
 // Wipe both the form-level banner and every per-field error slot.
 function clearModalErrors() {
@@ -323,14 +547,26 @@ function showBannerError(message) {
     formBanner.hidden = false;
 }
 
+// Pick the field name out of a loc path. The last segment is usually it
+// ("body", "due_date"), but per-item errors end in an index
+// ("body", "tags", 0) — walk back to the last named segment so those
+// still land on the tags slot.
+function fieldFromLoc(loc) {
+    if (!Array.isArray(loc)) return null;
+    for (let i = loc.length - 1; i >= 0; i--) {
+        const part = loc[i];
+        if (typeof part === "string" && part !== "body") return part;
+    }
+    return null;
+}
+
 // Route a 422 body onto field slots. FastAPI sends
 // { detail: [{ loc: ["body", "title"], msg }] }; a plain string detail
 // (or anything else) goes to the banner.
 function showValidationErrors(detail) {
     if (Array.isArray(detail)) {
         for (const item of detail) {
-            const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
-            showFieldError(field, item.msg || "Invalid value");
+            showFieldError(fieldFromLoc(item.loc), item.msg || "Invalid value");
         }
         return;
     }
@@ -353,12 +589,17 @@ function openModal(task) {
         f.status.value = task.status || "ToDo";
         f.priority.value = task.priority || "Medium";
         f.assignee.value = task.assignee || "";
+        f.due_date.value = task.due_date || "";
+        setTagChips(task.tags);
     } else {
         modalTitle.textContent = "New Task";
         f.taskId.value = "";
         f.status.value = "ToDo";
         f.priority.value = "Medium";
+        f.due_date.value = "";
+        setTagChips([]);
     }
+    tagEntry.value = "";
 
     modal.hidden = false;
     f.title.focus();
@@ -367,6 +608,8 @@ function openModal(task) {
 function closeModal() {
     modal.hidden = true;
     clearModalErrors();
+    tagEntry.value = "";
+    setTagChips([]);
 }
 
 form.addEventListener("submit", async (event) => {
@@ -381,13 +624,23 @@ form.addEventListener("submit", async (event) => {
         return; // client validation failed — no request
     }
 
+    // A tag still sitting in the text box counts as entered.
+    commitTagEntry();
+
     const assignee = f.assignee.value.trim();
+    const dueDate = f.due_date.value;
     const payload = {
         title,
         description: f.description.value, // empty stays "" per spec
         status: f.status.value,
         priority: f.priority.value,
         assignee: assignee === "" ? null : assignee,
+        // DD-2: an empty date is sent as an explicit null — that's how a
+        // deadline gets cleared. The server owns DD-5, so the value itself
+        // is not validated here.
+        due_date: dueDate === "" ? null : dueDate,
+        // Never null — the backend rejects a null `tags`.
+        tags: [...tagChips],
     };
 
     const id = f.taskId.value;

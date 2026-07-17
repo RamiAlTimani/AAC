@@ -19,6 +19,20 @@
         <button type="button" id="new-task-btn" class="btn-primary">New Task</button>
     </header>
 
+    <!-- Client-side filters over the already-fetched tasks (DD-4, TG-3).
+         Changing one is a pure re-render — never a request. -->
+    <div class="filter-bar">
+        <label class="filter-toggle">
+            <input type="checkbox" id="filter-overdue">
+            Overdue only
+        </label>
+        <label class="filter-label" for="filter-tag">Tag</label>
+        <!-- Options are rebuilt from the task list after every fetch. -->
+        <select id="filter-tag" class="filter-select">
+            <option value="">All tags</option>
+        </select>
+    </div>
+
     <!-- Board-level status: shown during loading and on fetch failure. -->
     <div id="board-status" class="board-status" hidden></div>
 
@@ -57,8 +71,10 @@
             <div class="card-meta">
                 <span class="priority-pill" data-priority=""></span>
                 <span class="assignee"></span>
+                <span class="due-date"></span>
                 <button type="button" class="edit-btn">Edit</button>
             </div>
+            <div class="card-tags"></div>
         </article>
     </template>
 
@@ -112,6 +128,24 @@
                     <label for="field-assignee">Assignee</label>
                     <input type="text" id="field-assignee" name="assignee" autocomplete="off">
                     <p class="field-error" data-error-for="assignee" hidden></p>
+                </div>
+
+                <div class="field">
+                    <label for="field-due_date">Due Date</label>
+                    <input type="date" id="field-due_date" name="due_date">
+                    <p class="field-error" data-error-for="due_date" hidden></p>
+                </div>
+
+                <!-- The chips inside .tag-chips are the source of truth for the
+                     submitted array; #tag-entry is only a staging text box and
+                     is deliberately unnamed so it never posts itself. -->
+                <div class="field">
+                    <label for="tag-entry">Tags</label>
+                    <div class="tag-input" id="tag-input">
+                        <span class="tag-chips" id="tag-chips"></span>
+                        <input type="text" id="tag-entry" autocomplete="off" placeholder="Add a tag, press Enter">
+                    </div>
+                    <p class="field-error" data-error-for="tags" hidden></p>
                 </div>
 
                 <div class="modal-footer">

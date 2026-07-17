@@ -69,6 +69,59 @@ body {
     font-size: 14.5px;
 }
 
+/* ---- Filter bar ------------------------------------------------ */
+/* Sits between the header and the board and shares their width and
+   gutters, so it reads as part of the same surface. */
+.filter-bar {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 12px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.filter-toggle input {
+    accent-color: var(--focus);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+.filter-toggle input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+/* Label matches the modal's .field label; the select itself inherits the
+   modal field styling below and only overrides its full-bleed width. */
+.filter-label {
+    margin-left: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
+/* Scoped so these win over the shared field rules further down the file
+   regardless of source order. */
+.filter-bar .filter-select {
+    width: auto;
+    min-width: 150px;
+    font-size: 13.5px;
+    padding: 6px 9px;
+}
+
 /* ---- Board ----------------------------------------------------- */
 .board {
     max-width: 1180px;
@@ -200,6 +253,43 @@ body {
 .assignee.is-unassigned {
     color: var(--ink-faint);
     font-style: italic;
+}
+
+.due-date {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+}
+
+/* Overdue is derived at render time (DD-3) — never a stored field. */
+.due-date.is-overdue {
+    font-weight: 600;
+    color: var(--p-high);
+}
+
+.card.is-overdue {
+    border-color: rgba(229, 72, 77, 0.35);
+}
+
+.card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+/* Hue is set inline from the casefolded tag text (TG-4); the rest of the
+   chip's colour is derived from it so every tag reads the same way. */
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    color: hsl(var(--tag-hue, 0) 55% 30%);
+    background: hsl(var(--tag-hue, 0) 70% 95%);
+    border: 1px solid hsl(var(--tag-hue, 0) 45% 82%);
 }
 
 .edit-btn {
@@ -362,7 +452,8 @@ body {
 
 .field input,
 .field textarea,
-.field select {
+.field select,
+.filter-select {
     width: 100%;
     font: inherit;
     font-size: 14px;
@@ -380,10 +471,70 @@ body {
 
 .field input:focus,
 .field textarea:focus,
-.field select:focus {
+.field select:focus,
+.filter-select:focus {
     outline: none;
     border-color: var(--focus);
     box-shadow: var(--focus-ring);
+}
+
+/* Wrapper mimics a single text field; the real input sits inside it and
+   grows to fill whatever the chips leave. */
+.tag-input {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    cursor: text;
+    transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+.tag-input:focus-within {
+    border-color: var(--focus);
+    box-shadow: var(--focus-ring);
+}
+
+.tag-chips {
+    display: contents;
+}
+
+.field .tag-input input {
+    flex: 1;
+    min-width: 120px;
+    width: auto;
+    border: none;
+    padding: 3px 2px;
+    background: transparent;
+}
+
+.field .tag-input input:focus {
+    box-shadow: none;
+}
+
+.tag-chip-remove {
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    color: inherit;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.65;
+}
+
+.tag-chip-remove:hover {
+    opacity: 1;
+}
+
+.tag-chip-remove:focus-visible {
+    outline: 1px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: var(--radius-pill);
 }
 
 .field-row {
