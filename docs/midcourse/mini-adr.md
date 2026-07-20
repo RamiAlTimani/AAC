@@ -1,12 +1,4 @@
-# ADR-001 — Storage architecture for Due Dates & Tags
-
-| | |
-|---|---|
-| **Status** | Accepted |
-| **Date** | 2026-07-16 |
-| **Deciders** | Rami Al Timani |
-| **Scope** | Task Tracker backend (`task-tracker/backend`) |
-| **Supersedes** | — |
+# Mini ADR- Storage architecture for Due Dates & Tags
 
 ## Context
 
@@ -16,8 +8,8 @@ via `storage._reset()`. There is no database, ORM, or file persistence.
 
 Two new feature sets were specified in [user-stories.md](user-stories.md):
 
-- **Feature 1 — Due Dates & Overdue Filter** (DD-1 … DD-5)
-- **Feature 2 — Tags / Labels** (TG-1 … TG-5)
+- **Feature 1 - Due Dates & Overdue Filter** (DD-1 … DD-5)
+- **Feature 2 - Tags / Labels** (TG-1 … TG-5)
 
 Neither feature is inherently blocked by the current storage layer, but tags in
 particular raise the question of whether a task's labels should stay as a list of
@@ -34,7 +26,7 @@ Project constraints that bound the decision:
 - Explicitly out of scope: microservices, Docker, cloud deployment, production database setup.
 
 The user stories also state the scope directly: *"none of these introduce … a
-persistent DB — all features operate on the shared in-memory task list."*
+persistent DB - all features operate on the shared in-memory task list."*
 
 ## Decision
 
@@ -68,27 +60,27 @@ project's complexity budget somewhere the features don't actually need it.
 
 - No new concepts or dependencies; the diff for both features is field additions
   plus validators.
-- Tests stay fast and isolated — `storage._reset()` remains a `dict.clear()`.
+- Tests stay fast and isolated - `storage._reset()` remains a `dict.clear()`.
 - The API wire format is unchanged in shape, so this decision can be revisited
   later without touching `frontend/app.js` or `Contract.md`. See *Revisiting* below.
 
 **If persistence is later wanted without a database**, the smallest honest addition
-is dumping `_tasks` to a `tasks.json` file on write and loading it at startup —
+is dumping `_tasks` to a `tasks.json` file on write and loading it at startup -
 roughly ten lines, no new dependency. This is *not* being done now, because it
 means owning the "corrupt or partial write" problem for no current benefit.
 
-## Alternative considered — Option B: SQLite + SQLModel
+## Alternative considered - Option B: SQLite + SQLModel
 
 ### What it was
 
 A lightweight local database, chosen for realism rather than for scale:
 
-| Layer | Choice |
-|---|---|
-| ORM | SQLModel (SQLAlchemy 2.0 + Pydantic, by FastAPI's author) |
-| Storage | SQLite via the stdlib `sqlite3` driver — a single `tasks.db` file, no server |
-| Migrations | None — `SQLModel.metadata.create_all()` at startup |
-| Tests | In-memory SQLite (`sqlite://`) per test, via a `get_session` dependency override |
+| Layer      | Choice                                                                               |
+| ---------- | ------------------------------------------------------------------------------------ |
+| ORM        | SQLModel (SQLAlchemy 2.0 + Pydantic, by FastAPI's author)                            |
+| Storage    | SQLite via the stdlib`sqlite3` driver - a single `tasks.db` file, no server      |
+| Migrations | None -`SQLModel.metadata.create_all()` at startup                                  |
+| Tests      | In-memory SQLite (`sqlite://`) per test, via a `get_session` dependency override |
 
 It added one dependency (`sqlmodel`); SQLite itself ships with Python.
 `app/storage.py` would be replaced by `app/repositories/tasks.py` (filling the
@@ -112,19 +104,16 @@ behind it, so it pays Option B's costs without buying its realism.
    rule out a production database setup and ask for the simplest local stack; the
    user stories' scope check explicitly assumes no persistent DB. Option B is
    defensible engineering, but it is not what this project asked for.
-
 2. **It spends the learning budget in the wrong place.** Due dates and tags are
    exercises in Pydantic validation and frontend rendering. Option B would mean
    learning session lifecycle, dependency-injected sessions, the schema-vs-table
-   distinction, and SQLAlchemy's identity map *at the same time as* the features —
+   distinction, and SQLAlchemy's identity map *at the same time as* the features -
    and none of that is what these two features are about.
-
 3. **Test isolation becomes a real design problem.** `storage._reset()` is a
    `dict.clear()`. Option B needs a per-test in-memory engine plus a dependency
-   override — a fixture that is easy to get subtly wrong, producing tests that pass
+   override - a fixture that is easy to get subtly wrong, producing tests that pass
    individually and fail in a suite. That is a poor trade for a project whose
    existing test setup already works.
-
 4. **Its main benefit is partly self-defeating here.** Persistence is the reason to
    adopt Option B, but with no Alembic, any table change means deleting `tasks.db`
    and losing the data anyway.
@@ -134,7 +123,7 @@ behind it, so it pays Option B's costs without buying its realism.
 Option B remains open. `TaskResponse` flattens tags to `list[str]` in both designs,
 so **both options produce identical JSON**. Migrating later means replacing
 `storage.py` with `repositories/tasks.py` behind the same function names
-(`add_task`, `get_all_tasks`, `update_task`, …) — the routers barely change and the
+(`add_task`, `get_all_tasks`, `update_task`, …) - the routers barely change and the
 frontend does not change at all.
 
 Reconsider if any of these become true:
@@ -143,7 +132,7 @@ Reconsider if any of these become true:
 - A feature needs to query across tasks in a way that is awkward in Python (e.g.
   tag renaming, tag usage counts, or server-side filtering at scale).
 - The project's goal shifts from "learn these features" to "learn a backend
-  persistence layer" — at which point Option B becomes the *point*, not a cost.
+  persistence layer" - at which point Option B becomes the *point*, not a cost.
 
 ## Implementation
 
@@ -153,7 +142,7 @@ Reconsider if any of these become true:
 task-tracker/
 ├── Contract.md
 ├── backend/
-│   ├── requirements.txt          # unchanged — no new dependency
+│   ├── requirements.txt          # unchanged - no new dependency
 │   ├── .env.example
 │   ├── app/
 │   │   ├── main.py               # app instance, CORS, router registration only
@@ -164,12 +153,12 @@ task-tracker/
 │   │   │   └── config.py
 │   │   └── routers/
 │   │       ├── health.py
-│   │       └── tasks.py          # NEW — the 5 task endpoints, moved from main.py
+│   │       └── tasks.py          # NEW - the 5 task endpoints, moved from main.py
 │   └── tests/
 │       ├── conftest.py
 │       ├── test_tasks.py
-│       ├── test_due_dates.py     # NEW — DD-1 … DD-5
-│       └── test_tags.py          # NEW — TG-1 … TG-5
+│       ├── test_due_dates.py     # NEW - DD-1 … DD-5
+│       └── test_tags.py          # NEW - TG-1 … TG-5
 └── frontend/
     ├── index.html
     ├── style.css
@@ -185,7 +174,7 @@ Changes from the current tree:
   Option A they would stay empty permanently, and an empty package is a promise the
   code never keeps. (`repositories/` returns only if Option B is ever adopted.)
 
-### Feature 1 — Due Dates & Overdue Filter
+### Feature 1 - Due Dates & Overdue Filter
 
 **Model (`app/models.py`).** A new optional, nullable field on all three schemas:
 
@@ -193,7 +182,7 @@ Changes from the current tree:
 due_date: Optional[date] = None      # DD-1: date-only, no time-of-day
 ```
 
-`date` gives DD-5's malformed-input rejection (`2026-13-40`, `"soon"`) for free —
+`date` gives DD-5's malformed-input rejection (`2026-13-40`, `"soon"`) for free -
 Pydantic returns 422 with `loc = ("body", "due_date")`, which routes to the field
 slot per contract B8. Nullable keeps existing tasks unaffected.
 
@@ -213,13 +202,12 @@ parameter; the existing `status`/`priority` params on `GET /tasks` are unchanged
    2026-07-16 with `due_date: 2026-07-20` would become uneditable on 2026-07-21 if a
    naive `due_date < today` validator ran on `TaskUpdate` and the modal resent the
    unchanged date. The past-date check must therefore apply **only when `due_date` is
-   actually being changed**, which requires the existing task — so on the update path
+   actually being changed**, which requires the existing task - so on the update path
    it is a business rule in `business_rules.py`, not a field validator. Same shape as
    the existing `validate_status_transition`.
-
 2. **That business rule still needs a `loc`.** `validate_status_transition` raises
    `HTTPException(422, detail=...)`, which the frontend can only show in the form
-   banner — but DD-5 requires the error on the due-date input. The update-path date
+   banner - but DD-5 requires the error on the due-date input. The update-path date
    rule must therefore raise `RequestValidationError` with `loc = ("body", "due_date")`
    (or hand-build a 422 body in Pydantic's shape) instead of `HTTPException`. Build
    this helper once; TG-5 needs the same thing.
@@ -230,9 +218,9 @@ distinguish "clear the date" from "leave it alone". `storage.update_task` alread
 `"due_date": null` in the body counts as *set*, an absent key does not. **This
 behaviour is load-bearing for DD-2 and must be pinned by a test.**
 
-### Feature 2 — Tags / Labels
+### Feature 2 - Tags / Labels
 
-**Model (`app/models.py`).** Tags are free-text strings on the task — no tag entity:
+**Model (`app/models.py`).** Tags are free-text strings on the task - no tag entity:
 
 ```python
 tags: Annotated[list[str], Field(max_length=MAX_TAGS)] = []
@@ -259,7 +247,7 @@ preserving contract B4.
 
 **Styling (TG-4).** Chip colour is derived deterministically from the casefolded tag
 text (e.g. a hash → hue). No colour is stored, so `Bug` and `bug` render as one
-category. Chip styling must not affect card sort order — priority sort per B2 is
+category. Chip styling must not affect card sort order - priority sort per B2 is
 unchanged.
 
 ### Contract impact
