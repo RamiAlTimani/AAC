@@ -23,9 +23,18 @@ VALID_TRANSITIONS: frozenset[tuple[TaskStatus, TaskStatus]] = frozenset({
 
 
 def validate_status_transition(current: TaskStatus, new: TaskStatus) -> None:
-    """Raise 422 if moving from ``current`` to ``new`` is not permitted.
+    """Validate a status transition, raising on a disallowed move.
 
-    Same -> same is invalid. Anything not in VALID_TRANSITIONS is invalid.
+    Only the pairs in VALID_TRANSITIONS are permitted; every other pair,
+    including same -> same, is rejected.
+
+    Args:
+        current: The task's existing status.
+        new: The status the caller wants to move to.
+
+    Raises:
+        HTTPException: 422 Unprocessable Entity if (current, new) is not in
+            VALID_TRANSITIONS. The detail lists the allowed transitions.
     """
     if (current, new) not in VALID_TRANSITIONS:
         allowed = sorted({f"{f.value}->{t.value}" for f, t in VALID_TRANSITIONS})
@@ -39,18 +48,27 @@ def validate_status_transition(current: TaskStatus, new: TaskStatus) -> None:
 
 
 def validate_due_date_change(current: Optional[date], new: Optional[date]) -> None:
-    """Raise 422 if ``new`` moves a task's due date into the past (DD-5).
+    """Validate a due-date change, raising if it moves the date into the past.
 
-    Clearing the date (``new`` is None) is always allowed (DD-2). So is resending
-    the date the task already has, even once that date is in the past: a task
-    validly created with a future due date must stay editable after that date
-    passes, and the edit modal resends the unchanged due_date. Telling "changing
-    the date" from "resending the same date" needs the existing task, which is why
-    this is a business rule rather than a field_validator on TaskUpdate.
+    Clearing the date (``new`` is None) is always allowed (DD-2), as is
+    resending the date the task already has even once that date is in the past:
+    a task validly created with a future due date must stay editable after that
+    date passes, and the edit modal resends the unchanged due_date. Only moving
+    the due date to a new date earlier than today is rejected (DD-5). Telling
+    "changing the date" from "resending the same date" needs the existing task,
+    which is why this is a business rule rather than a field_validator on
+    TaskUpdate.
 
-    Raises RequestValidationError, not HTTPException, because DD-5 puts the error
-    on the due-date input: contract B8 routes an error to its input slot by reading
-    the ``loc`` path, and HTTPException's string detail has no loc.
+    Args:
+        current: The task's existing due date, or None if it had none.
+        new: The proposed due date, or None to clear it.
+
+    Raises:
+        RequestValidationError: If ``new`` is a date earlier than today and
+            differs from ``current``. It is raised (rather than an
+            HTTPException) with loc ("body", "due_date") so contract B8 can
+            route the error to the due-date input; HTTPException's string detail
+            has no loc.
     """
     if new is None:
         return
